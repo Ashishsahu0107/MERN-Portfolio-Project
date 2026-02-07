@@ -93,6 +93,5 @@ router.post("/update-bio/:id", async (req, res) => {
   res.json({ message: "Bio updated" });
 });
 
-
 module.exports = router;
 
