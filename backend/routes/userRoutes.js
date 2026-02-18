@@ -1,97 +1,81 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const multer = require("multer");
-const path = require("path");
 
-const SECRET = "mern_secret";
+/* Upload Config */
 
-/* Image Upload */
-const storage = multer.diskStorage({
-  destination: "./uploads/",
+const photoStorage = multer.diskStorage({
+  destination: "uploads/photos",
   filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
+    cb(null, Date.now() + "-" + file.originalname);
   }
 });
 
-const upload = multer({ storage });
-
-/* Register */
-router.post("/register", async (req, res) => {
-  const { name, email, password } = req.body;
-
-  const exist = await User.findOne({ email });
-  if (exist) return res.json({ message: "User already exists" });
-
-  const hashed = await bcrypt.hash(password, 10);
-
-  const user = new User({
-    name,
-    email,
-    password: hashed
-  });
-
-  await user.save();
-  res.json({ message: "Registered Successfully" });
+const resumeStorage = multer.diskStorage({
+  destination: "uploads/resumes",
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname);
+  }
 });
 
-/* Login */
-router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+const uploadPhoto = multer({ storage: photoStorage });
+const uploadResume = multer({ storage: resumeStorage });
 
-  const user = await User.findOne({ email });
-  if (!user) return res.json({ message: "User not found" });
+/* User Routes */
 
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.json({ message: "Wrong password" });
-
-  const token = jwt.sign({ id: user._id }, SECRET, { expiresIn: "1d" });
-
-  res.json({
-    token,
-    userId: user._id
-  });
-});
-
-/* Get User */
+// Get single user
 router.get("/:id", async (req, res) => {
   const user = await User.findById(req.params.id);
   res.json(user);
 });
 
-/* Upload Profile Image */
-router.post("/upload/:id", upload.single("image"), async (req, res) => {
-  const user = await User.findById(req.params.id);
-  user.profileImage = req.file.filename;
-  await user.save();
-  res.json({ message: "Image uploaded" });
+// Update profile
+router.post("/update/:id", async (req, res) => {
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    req.body,
+    { new: true }
+  );
+  res.json(user);
 });
 
-/* Add Skill */
-router.post("/add-skill/:id", async (req, res) => {
+// Upload photo
+router.post("/upload-photo/:id", uploadPhoto.single("photo"), async (req, res) => {
   const user = await User.findById(req.params.id);
-  user.skills.push(req.body.skill);
+  user.photo = req.file.filename;
   await user.save();
-  res.json(user.skills);
+  res.json({ message: "Photo uploaded" });
 });
 
-/* Add Project */
-router.post("/add-project/:id", async (req, res) => {
+// Upload resume
+router.post("/upload-resume/:id", uploadResume.single("resume"), async (req, res) => {
   const user = await User.findById(req.params.id);
-  user.projects.push(req.body);
+  user.resume = req.file.filename;
   await user.save();
-  res.json(user.projects);
+  res.json({ message: "Resume uploaded" });
 });
 
+/* Admin Controls */
 
-router.post("/update-bio/:id", async (req, res) => {
+// Get all users
+router.get("/all/users", async (req, res) => {
+  const users = await User.find();
+  res.json(users);
+});
+
+// Delete user
+router.delete("/delete/:id", async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.json({ message: "User deleted" });
+});
+
+// Change role
+router.put("/role/:id", async (req, res) => {
   const user = await User.findById(req.params.id);
-  user.bio = req.body.bio;
+  user.role = req.body.role;
   await user.save();
-  res.json({ message: "Bio updated" });
+  res.json({ message: "Role updated" });
 });
 
 module.exports = router;
-
